@@ -1,0 +1,6 @@
+baking.db
+uploads/
+dataset/
+__pycache__/
+*.pyc
+.venv/

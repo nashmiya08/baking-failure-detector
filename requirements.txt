@@ -1,0 +1,5 @@
+streamlit
+pillow
+numpy
+# Only needed to train / use the CNN (not needed for the demo mode):
+# tensorflow
