@@ -1,5 +1,6 @@
 """Diagnosis engine: image symptoms + user inputs + knowledge base -> ranked causes."""
 from knowledge_base import SYMPTOMS, PRODUCT_RANGES
+from recipe_fixer import analyze
 
 
 def build_flags(inp):
@@ -40,6 +41,9 @@ def build_flags(inp):
         notes.append("Opening the oven door drops the temperature and can collapse the bake.")
 
     text = inp["recipe"].lower()
+    if inp.get("mixing", "").startswith("Mixed vigorously"):
+        flags.add("overmix_hint")
+        notes.append("You mixed vigorously, which develops gluten and makes the crumb tough.")
     if any(w in text for w in ("blender", "high speed", "beat well", "whisk vigorously", "mix well")):
         flags.add("overmix_hint")
         notes.append("Recipe text suggests vigorous mixing, which can toughen the crumb.")
@@ -54,6 +58,9 @@ def build_flags(inp):
 def diagnose(inp, image_symptoms):
     """image_symptoms: list of (symptom_key, confidence, source)."""
     flags, notes = build_flags(inp)
+    recipe_check = analyze(inp["recipe"], inp["product"])
+    if recipe_check:
+        flags |= set(recipe_check["flags"])
 
     # merge image predictions and the user's own guesses
     found = {}
@@ -81,5 +88,5 @@ def diagnose(inp, image_symptoms):
                 if "No ingredient change" not in text and text not in bucket:
                     bucket.append(text)
 
-    return {"symptoms": results, "notes": notes,
+    return {"symptoms": results, "notes": notes, "recipe_check": recipe_check,
             "plan": {"recipe": plan_recipe, "process": plan_process}}
