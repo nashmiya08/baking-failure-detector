@@ -22,3 +22,4 @@ Push to GitHub, then at share.streamlit.io choose the repo and `app.py`.
 
 ## Optional: your own photos
 Create a folder named `images` in the repo and add 2-4 bakery photos (.jpg/.png). They show on the login page.
+- image_features.py Measures colour and browning pattern in the photo and links each measurement to a baking-science meaning

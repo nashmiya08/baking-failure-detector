@@ -1,12 +1,15 @@
 """
-Image classifier.
- - If models/baking_cnn.keras exists (trained with train_cnn.py) -> uses the CNN.
- - Otherwise uses a simple colour-based fallback so the app still runs for demo.
+Photo reading.
+ - Measurements (image_features.py): colour, browning pattern -> always used as visible evidence.
+ - CNN (if models/baking_cnn.keras exists, trained with train_cnn.py): recognises shape problems
+   such as collapse, dense crumb and spread. Without it, the measurements give the symptoms.
 """
 import json
 import os
 import numpy as np
 from PIL import Image
+
+from image_features import measure
 
 MODEL_PATH = "models/baking_cnn.keras"
 CLASSES_PATH = "models/class_names.json"
@@ -21,24 +24,16 @@ def _load_model():
     return _model
 
 
-def _colour_fallback(img):
-    gray = np.asarray(img.convert("L").resize((224, 224)), dtype=float)
-    h, w = gray.shape
-    centre = gray[h // 4: 3 * h // 4, w // 4: 3 * w // 4]
-    dark, pale = (centre < 60).mean(), (centre > 185).mean()
-    out = []
-    if dark > 0.25:
-        out.append(("burnt_surface", min(0.95, 0.4 + dark), "colour analysis (demo mode)"))
-    if pale > 0.35:
-        out.append(("pale_underbaked", min(0.9, 0.3 + pale / 2), "colour analysis (demo mode)"))
-    return out
+def read_photo(img):
+    """Returns (symptoms, findings).
+    symptoms: list of (symptom_key, confidence, source) from the CNN if trained, else from photo measurements.
+    findings: measured colour/browning evidence with its baking-science meaning (always computed)."""
+    findings = measure(img)
+    return (_cnn_symptoms(img) if _load_model() is not None else findings["symptoms"]), findings
 
 
-def predict(img):
-    """Returns list of (symptom_key, confidence, source)."""
+def _cnn_symptoms(img):
     model = _load_model()
-    if model is None:
-        return _colour_fallback(img)
     classes = json.load(open(CLASSES_PATH))
     x = np.asarray(img.convert("RGB").resize((224, 224)), dtype="float32")[None]
     probs = model.predict(x, verbose=0)[0]

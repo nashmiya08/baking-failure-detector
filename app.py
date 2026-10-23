@@ -7,7 +7,7 @@ import streamlit as st
 from PIL import Image
 
 import db
-from classifier import predict
+from classifier import read_photo
 from diagnosis import diagnose
 import recipe_fixer
 from guess_parser import parse_guess
@@ -105,11 +105,14 @@ def show_result(res):
         st.info(f"Your guess: {res['guess_text']}")
     if not res["symptoms"]:
         st.info("No clear failure found in the photo. Pick a guess from the list and try again.")
+    if res.get("photo_findings"):
+        st.markdown("#### 📷 What I measured in your photo")
+        st.table(res["photo_findings"])
     for s in res["symptoms"]:
         st.subheader(f"Likely issue: {s['label']}")
         st.caption(f"Detected from: {s['source']}  |  confidence: {s['confidence']:.0%}")
         for i, c in enumerate(s["causes"]):
-            tag = " (matches your inputs)" if c["matched"] else ""
+            tag = (" (matches your inputs)" if c["matched"] else "") + (" (supported by your photo)" if c.get("photo") else "")
             with st.expander(f"{c['name']} - {c['score']:.0%} likely{tag}", expanded=(i == 0)):
                 st.markdown(f"**Science:** {c['science']}")
                 st.markdown(f"**Recipe adjustment:** {c['recipe_fix']}")
@@ -204,8 +207,8 @@ def new_diagnosis():
         inp = {"product": product, "temp": temp, "minutes": minutes, "rod": rod, "tin": tin,
                "recipe": recipe, "pan": pan, "guesses": guess_keys, "guess_flags": guess_flags, "guess_text": guess_text,
                "preheated": preheated, "opened_door": opened, "mixing": mixing}
-        image_symptoms = predict(image) if image else []
-        result = diagnose(inp, image_symptoms)
+        image_symptoms, findings = read_photo(image) if image else ([], None)
+        result = diagnose(inp, image_symptoms, findings)
         db.save_history(st.session_state.user_id, inp, image, result)
         if image:
             st.image(image, width=300)

@@ -98,7 +98,7 @@ def build_flags(inp, use_ranges):
     return flags, notes
 
 
-def diagnose(inp, image_symptoms):
+def diagnose(inp, image_symptoms, image_findings=None):
     """image_symptoms: list of (symptom_key, confidence, source).
     inp["guesses"] = symptom keys found in the typed guess; inp["guess_flags"] = {rule: sentence}."""
     setup = {"pan": inp.get("pan"), "tin": inp["tin"], "rod": inp["rod"]}
@@ -120,6 +120,7 @@ def diagnose(inp, image_symptoms):
         notes.append("I could not match your typed guess to a known problem. Try words like burnt, sunk, dense, "
                      "cracked, spread, dry or raw.")
 
+    photo_support = set(image_findings["support"]) if image_findings else set()
     found = {}
     for key, conf, src in image_symptoms:
         found[key] = (conf, src)
@@ -131,8 +132,8 @@ def diagnose(inp, image_symptoms):
     for key, (conf, src) in sorted(found.items(), key=lambda x: -x[1][0]):
         causes = []
         for c in SYMPTOMS[key]["causes"]:
-            score = 1.0 + (2.0 if c["rule"] in flags else 0.0)
-            causes.append({**c, "score": score, "matched": c["rule"] in flags})
+            score = 1.0 + (2.0 if c["rule"] in flags else 0.0) + (1.0 if c["rule"] in photo_support else 0.0)
+            causes.append({**c, "score": score, "matched": c["rule"] in flags, "photo": c["rule"] in photo_support})
         total = sum(c["score"] for c in causes)
         for c in causes:
             c["score"] = c["score"] / total
@@ -150,4 +151,5 @@ def diagnose(inp, image_symptoms):
 
     return {"symptoms": results, "notes": notes, "recipe_check": recipe_check, "bake_check": bake,
             "guess_text": inp.get("guess_text", ""),
+            "photo_findings": image_findings["rows"] if image_findings else None,
             "plan": {"recipe": plan_recipe, "process": plan_process}}
