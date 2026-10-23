@@ -33,6 +33,8 @@ CAUSE_WORDS = {
     "no_chill": ("the dough was not chilled", ["didnt chill", "did not chill", "not chilled", "no chill", "without chilling"]),
     "melted_fat": ("the butter was melted or too soft", ["melted butter", "butter was melted", "soft butter"]),
     "top_rod": ("the top rod was too strong", ["top rod", "top heat", "top coil"]),
+    "deep_batter": ("the pan was too small for the batter", ["pan too small", "small pan", "tin too small", "small tin"]),
+    "shallow_batter": ("the pan was too big for the batter", ["pan too big", "big pan", "large pan", "tin too big", "big tin", "large tin"]),
     "dark_tin": ("a dark tin was used", ["dark tin", "non stick tin", "nonstick tin", "black tin"]),
 }
 

@@ -14,6 +14,8 @@ import os
 import re
 import statistics
 
+from knowledge_base import PANS
+
 DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "recipes_dataset.csv")
 CATS = ["sugar", "fat", "egg", "liquid", "leavener", "salt", "cocoa"]
 TOLERANCE = 0.2          # accept 20% beyond the dataset's min / max
@@ -64,12 +66,24 @@ def load_dataset():
     recipes = []
     with open(DATA_FILE, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
+            extras = []
+            for part in (row.get("extras") or "").split(";"):
+                if ":" in part:
+                    name, grams = part.split(":")
+                    extras.append((name.strip(), float(grams)))
             r = {"product": row["product"].strip(), "name": row["recipe"].strip(),
-                 "flour": float(row["flour"]), "method": row.get("method", "").strip()}
+                 "flour": float(row["flour"]), "method": row.get("method", "").strip(),
+                 "temp_c": float(row["temp_c"]), "minutes": float(row["minutes"]),
+                 "pan": row["pan"].strip(), "extras": extras, "source": row.get("source", "").strip()}
             for c in CATS:
                 r[c] = float(row[c] or 0)
             recipes.append(r)
     return recipes
+
+
+def ref_weight(r):
+    """Total batter / dough weight of a reference recipe in grams."""
+    return r["flour"] + sum(r[c] for c in CATS) + sum(g for _, g in r["extras"])
 
 
 def build_targets(recipes):
@@ -104,7 +118,9 @@ def reference_table(product):
             rows.append({"Recipe": r["name"], "Flour (g)": f"{r['flour']:g}", "Sugar (g)": f"{r['sugar']:g}",
                          "Butter/oil (g)": f"{r['fat']:g}", "Eggs (g)": f"{r['egg']:g}",
                          "Milk/water (g)": f"{r['liquid']:g}", "Leavener (g)": f"{r['leavener']:g}",
-                         "Salt (g)": f"{r['salt']:g}", "Cocoa (g)": f"{r['cocoa']:g}"})
+                         "Salt (g)": f"{r['salt']:g}", "Cocoa (g)": f"{r['cocoa']:g}",
+                         "Other (g)": ", ".join(f"{n} {g:g}" for n, g in r["extras"]) or "-",
+                         "Oven": f"{r['temp_c']:.0f} C, {r['minutes']:.0f} min", "Pan": r["pan"]})
     return rows
 
 
@@ -124,7 +140,7 @@ def range_table(product):
 UNIT = r"kg|grams?|gms?|g|ml|litres?|liters?|l|cups?|tbsp|tablespoons?|tsp|teaspoons?|sticks?"
 NUM = r"\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?"
 LINE_A = re.compile(rf"^\s*(?P<qty>{NUM})\s*(?P<unit>{UNIT})?\b\s*(?:of\s+)?(?P<name>.+?)\s*$", re.I)
-LINE_B = re.compile(rf"^\s*(?P<name>[A-Za-z][A-Za-z\s\-/']*?)\s*[:\-,]?\s*(?P<qty>{NUM})\s*(?P<unit>{UNIT})?\s*$", re.I)
+LINE_B = re.compile(rf"^\s*(?P<name>[A-Za-z][A-Za-z\s\-/'()]*?)\s*[:\-,]?\s*(?P<qty>{NUM})\s*(?P<unit>{UNIT})?\s*$", re.I)
 PAREN_G = re.compile(r"\(\s*(\d+(?:\.\d+)?)\s*(?:g|gm|gms|grams?)\s*\)", re.I)
 
 
@@ -181,10 +197,10 @@ def _grams(qty, unit, cat, name):
 
 
 def parse_recipe(text):
-    """Returns (items, others, unparsed). Understands '200 g flour', '2 cups (250g) flour', 'flour 200g'."""
+    """Returns (items, others, unparsed, other_g). Understands '200 g flour', '2 cups (250g) flour', 'flour 200g'."""
     for k, v in FRACTIONS.items():
         text = text.replace(k, v)
-    items, others, unparsed = [], [], []
+    items, others, unparsed, other_g = [], [], [], 0.0
     for raw in text.splitlines():
         line = re.sub(r"^[\s\-\u2022*]+", "", raw).strip()
         if not line:
@@ -202,13 +218,15 @@ def parse_recipe(text):
         cat = _category(name)
         if cat is None:
             others.append(line)          # vanilla, chocolate chips, bananas ... kept as they are
+            g = float(paren.group(1)) if paren else _grams(_to_number(m.group("qty")), m.group("unit"), None, name)
+            other_g += g or 0
             continue
         grams = float(paren.group(1)) if paren else _grams(_to_number(m.group("qty")), m.group("unit"), cat, name)
         if grams is None:
             unparsed.append(line)
         else:
             items.append({"cat": cat, "grams": grams, "line": line})
-    return items, others, unparsed
+    return items, others, unparsed, other_g
 
 
 # ---------------- formatting helpers ----------------
@@ -253,13 +271,49 @@ def _closest(product, pcts):
     return best
 
 
+def _bake_plan(ref, total_g, setup):
+    """Suggested oven temperature and time for THIS pan, tin and oven, starting from the reference recipe."""
+    setup = setup or {}
+    temp, minutes, science = ref["temp_c"], ref["minutes"], []
+    area_user, area_ref = PANS.get(setup.get("pan")), PANS.get(ref["pan"])
+    ratio = None
+    if area_user and area_ref and total_g:
+        ratio = (total_g / area_user) / (ref_weight(ref) / area_ref)   # batter depth vs reference pan
+        if ratio > 1.3:
+            drop = 15 if ratio > 1.6 else 10
+            temp -= drop
+            minutes *= min(ratio, 1.8)
+            science.append(f"Your batter is about {(ratio - 1) * 100:.0f}% deeper than in the reference pan. Heat needs longer to reach "
+                           f"the centre, so the outside browns and sets before the middle cooks. Lower the temperature by {drop} C and bake longer.")
+        elif ratio < 0.75:
+            minutes *= max(ratio, 0.6)
+            science.append(f"Your batter is a thinner layer (about {(1 - ratio) * 100:.0f}% shallower than the reference), so it cooks "
+                           "and dries out faster. Shorten the bake and start checking early.")
+    tin, rod = setup.get("tin", ""), setup.get("rod", "")
+    if "Dark" in tin or "Glass" in tin:
+        temp -= 10
+        science.append("Dark metal absorbs more heat and glass/ceramic holds heat longer, so the edges and base overbake. Lower the temperature by 10 C.")
+    if "Silicone" in tin:
+        minutes += 3
+        science.append("Silicone insulates, so the batter heats slowly. Add a few minutes and stand the mould on a metal tray.")
+    if rod == "Fan / convection":
+        temp -= 15
+        science.append("A fan circulates hot air and transfers heat faster, so reduce the recipe temperature by about 15 C.")
+    if rod == "Top rod only":
+        science.append("Top-rod-only heat browns the surface first. Use a lower rack or switch on the bottom rod as well.")
+    temp = 5 * round(temp / 5)
+    return {"temp_c": temp, "min_lo": round(minutes * 0.85), "min_hi": round(minutes * 1.15),
+            "ref_name": ref["name"], "ref_temp": ref["temp_c"], "ref_minutes": ref["minutes"],
+            "ref_pan": ref["pan"], "depth_ratio": ratio, "science": science}
+
+
 # ---------------- main function ----------------
-def analyze(text, product):
+def analyze(text, product, setup=None):
     """Returns a JSON-friendly dict, or None when there is no recipe text."""
     spec = TARGETS.get(product)
     if not text or not text.strip() or spec is None:
         return None
-    items, others, unparsed = parse_recipe(text)
+    items, others, unparsed, other_g = parse_recipe(text)
     understood = [{"line": it["line"], "ingredient": NICE[it["cat"]],
                    "grams": f"{it['grams']:.1f}" if it["grams"] < 20 else f"{it['grams']:.0f}"} for it in items]
     totals = {}
@@ -268,7 +322,7 @@ def analyze(text, product):
     flour = totals.get("flour")
     if not flour:
         return {"flour_g": None, "rows": [], "flags": [], "corrected": [], "unparsed": unparsed,
-                "understood": understood, "reference": None,
+                "understood": understood, "reference": None, "bake_plan": None,
                 "message": "I could not find the flour amount. Write it like '200 g flour' (one ingredient per line) so I can check the ratios."}
 
     pcts = {c: totals.get(c, 0) / flour * 100 for c in CATS}
@@ -305,6 +359,12 @@ def analyze(text, product):
 
     if sum(f"{c}_low" in flags for c in ("sugar", "fat", "liquid", "egg")) >= 2:
         flags.add("flour_heavy")
+    plan = _bake_plan(ref, sum(totals.values()) + other_g, setup)
+    if plan["depth_ratio"] is not None:
+        if plan["depth_ratio"] > 1.3:
+            flags.add("deep_batter")
+        elif plan["depth_ratio"] < 0.75:
+            flags.add("shallow_batter")
     if flags & {"liquid_high", "fat_high", "sugar_high"}:
         flags.add("weak_structure")
     if flags & {"liquid_high", "fat_high"}:
@@ -316,7 +376,10 @@ def analyze(text, product):
     for c in CATS:
         if ref_pcts[c] > 0:
             scaled.append(f"{_num(c, _suggest(c, flour, ref_pcts[c]))} {LABEL[c]}".strip())
+    for name, g in ref["extras"]:
+        scaled.append(f"{5 * round(g * flour / ref['flour'] / 5):.0f} g {name}")
 
     return {"flour_g": flour, "rows": rows, "flags": sorted(flags), "corrected": corrected,
             "unparsed": unparsed, "understood": understood, "message": "",
-            "reference": {"name": ref["name"], "scaled": scaled, "method": ref["method"]}}
+            "reference": {"name": ref["name"], "scaled": scaled, "method": ref["method"]},
+            "bake_plan": plan}

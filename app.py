@@ -11,7 +11,7 @@ from classifier import predict
 from diagnosis import diagnose
 import recipe_fixer
 from guess_parser import parse_guess
-from knowledge_base import PRODUCT_RANGES
+from knowledge_base import PRODUCT_RANGES, PANS
 
 st.set_page_config(page_title="Baking Failure Detector", page_icon="🧁", layout="wide")
 db.init_db()
@@ -61,7 +61,8 @@ if "user_id" not in st.session_state:
     st.session_state.user_id = None
     st.session_state.username = None
 
-STATUS = {"ok": "✅ OK", "high": "⬆️ Too much", "low": "⬇️ Too little", "missing": "➕ Missing"}
+STATUS = {"ok": "✅ OK", "high": "⬆️ Too high / too much", "low": "⬇️ Too low / too little", "missing": "➕ Missing",
+          "long": "⬆️ Too long", "short": "⬇️ Too short", "deep": "⬆️ Too deep", "shallow": "⬇️ Too shallow"}
 
 
 # ---------------- helpers ----------------
@@ -90,6 +91,15 @@ def show_recipe_check(rc):
         st.caption("I could not read these lines: " + "; ".join(rc["unparsed"]) + ". Write them like '200 g flour'.")
 
 
+def show_bake_check(bc):
+    st.markdown("#### 🔥 Bake check: temperature, time and pan")
+    st.caption(f"Compared with the reference recipe '{bc['ref']}' ({bc['ref_oven']}), adjusted for your pan, tin and oven.")
+    st.table([{"Check": r["what"], "You used": r["you"], "Should be": r["suggested"], "Status": STATUS[r["status"]]}
+              for r in bc["rows"]])
+    for line in bc["science"]:
+        st.write(f"- {line}")
+
+
 def show_result(res):
     if res.get("guess_text"):
         st.info(f"Your guess: {res['guess_text']}")
@@ -104,10 +114,12 @@ def show_result(res):
                 st.markdown(f"**Science:** {c['science']}")
                 st.markdown(f"**Recipe adjustment:** {c['recipe_fix']}")
                 st.markdown(f"**Process change:** {c['process_fix']}")
+    if res.get("bake_check"):
+        show_bake_check(res["bake_check"])
     if res.get("recipe_check"):
         show_recipe_check(res["recipe_check"])
     if res["notes"]:
-        st.markdown("#### 🔥 Checks based on your oven settings and method")
+        st.markdown("#### 🧰 Other checks (oven settings and method)")
         for n in res["notes"]:
             st.write(f"- {n}")
     if res["plan"]["recipe"] or res["plan"]["process"]:
@@ -172,7 +184,8 @@ def new_diagnosis():
             minutes = st.number_input("Minutes baked", 1, 180, 30)
             rod = st.selectbox("Which rods were on?",
                                ["Top and bottom", "Top rod only", "Bottom rod only", "Fan / convection", "Not sure"])
-            tin = st.selectbox("Tin used", ["Light metal tin", "Dark / non-stick metal tin",
+            pan = st.selectbox("Pan / tin size", list(PANS))
+            tin = st.selectbox("Tin material", ["Light metal tin", "Dark / non-stick metal tin",
                                             "Glass / ceramic dish", "Silicone mould", "Baking tray (cookies)"])
             mixing = st.selectbox("How did you mix after adding the flour?",
                                   ["Not sure / skip", "Gently folded until just combined", "Mixed vigorously / for a long time"])
@@ -189,7 +202,7 @@ def new_diagnosis():
         image = Image.open(photo) if photo else None
         guess_keys, guess_flags = parse_guess(guess_text)
         inp = {"product": product, "temp": temp, "minutes": minutes, "rod": rod, "tin": tin,
-               "recipe": recipe, "guesses": guess_keys, "guess_flags": guess_flags, "guess_text": guess_text,
+               "recipe": recipe, "pan": pan, "guesses": guess_keys, "guess_flags": guess_flags, "guess_text": guess_text,
                "preheated": preheated, "opened_door": opened, "mixing": mixing}
         image_symptoms = predict(image) if image else []
         result = diagnose(inp, image_symptoms)

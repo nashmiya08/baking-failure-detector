@@ -33,8 +33,8 @@ SYMPTOMS = {
              "science": "Top-rod-only heating blasts the surface with radiant heat, browning it faster than heat can reach the centre.",
              "recipe_fix": "No ingredient change needed.",
              "process_fix": "Use top + bottom rods, move the tin to a lower rack, or cover loosely with foil halfway."},
-            {"name": "Dark or thin tin absorbs more heat", "rule": "dark_tin",
-             "science": "Dark metal absorbs more radiant heat than shiny metal, so edges and base brown faster.",
+            {"name": "Dark, glass or ceramic tin holds more heat", "rule": "dark_tin",
+             "science": "Dark metal absorbs more radiant heat and glass/ceramic keeps its heat longer, so the edges and base overbake.",
              "recipe_fix": "Reduce temperature by about 10 C when using a dark tin.",
              "process_fix": "Use a light-coloured, thicker tin or line the tin with parchment."},
             {"name": "High sugar content on the surface", "rule": "sugar_high",
@@ -62,10 +62,10 @@ SYMPTOMS = {
              "science": "Each opening drops the oven temperature by 20-30 C or more.",
              "recipe_fix": "No ingredient change needed.",
              "process_fix": "Keep the door shut for the first two thirds of baking; use the oven light."},
-            {"name": "Glass / silicone / ceramic tin insulates", "rule": "insulating_tin",
-             "science": "These materials conduct heat slowly, so the batter heats up later and browns less.",
-             "recipe_fix": "Increase bake time by about 5-10 minutes.",
-             "process_fix": "Use a metal tin or lower the temperature less than usual."},
+            {"name": "Silicone mould insulates", "rule": "insulating_tin",
+             "science": "Silicone conducts heat poorly, so the batter heats slowly and browns less.",
+             "recipe_fix": "Increase bake time by about 3-5 minutes.",
+             "process_fix": "Place the silicone mould on a metal tray so it heats evenly."},
         ],
     },
     "collapsed_centre": {
@@ -170,3 +170,44 @@ SYMPTOMS = {
         ],
     },
 }
+
+
+# Pan sizes (top area in cm2). None = batter depth is not calculated for this pan.
+PANS = {
+    "20 cm / 8 inch round": 314,
+    "23 cm / 9 inch round": 415,
+    "20 cm / 8 inch square": 400,
+    "23 cm / 9 inch square": 529,
+    "23 x 33 cm / 9x13 inch rectangle": 759,
+    "23 x 13 cm / 9x5 inch loaf tin": 299,
+    "Muffin / cupcake tray": None,
+    "Flat baking tray / sheet": None,
+    "Other / not sure": None,
+}
+
+# Extra causes linked to the pan-size check in recipe_fixer.py
+SYMPTOMS["burnt_surface"]["causes"].append({
+    "name": "Batter too deep for the pan (small pan)", "rule": "deep_batter",
+    "science": "In a deep batter the heat needs much longer to reach the centre, so the top and edges brown and burn first.",
+    "recipe_fix": "Split the batter between two pans or use a bigger pan.",
+    "process_fix": "Lower the temperature by 10-15 C, bake longer and cover the top with foil once it is golden."})
+SYMPTOMS["burnt_surface"]["causes"].append({
+    "name": "Thin layer in a very large pan", "rule": "shallow_batter",
+    "science": "A thin layer cooks and dries out quickly, so it over-browns before you expect it to.",
+    "recipe_fix": "Use a smaller pan so the batter is deeper.",
+    "process_fix": "Shorten the bake time and start checking early."})
+SYMPTOMS["pale_underbaked"]["causes"].append({
+    "name": "Batter too deep for the pan (small pan)", "rule": "deep_batter",
+    "science": "Heat moves slowly through thick batter, so the centre stays raw while the outside is done.",
+    "recipe_fix": "Use a bigger pan or divide the batter into two pans.",
+    "process_fix": "Lower the temperature by 10-15 C and bake longer so the centre can catch up."})
+SYMPTOMS["collapsed_centre"]["causes"].append({
+    "name": "Batter too deep for the pan (small pan)", "rule": "deep_batter",
+    "science": "The centre of a deep batter sets last; if it is still liquid when the bake cools, it sinks.",
+    "recipe_fix": "Use a bigger pan or divide the batter into two pans.",
+    "process_fix": "Lower the temperature, bake longer and test the centre with a toothpick."})
+SYMPTOMS["dry_crumbly"]["causes"].append({
+    "name": "Thin layer in a very large pan", "rule": "shallow_batter",
+    "science": "Thin batter loses moisture quickly and is overbaked by the time the timer ends.",
+    "recipe_fix": "Use a smaller pan so the batter is deeper.",
+    "process_fix": "Shorten the bake time and check early."})

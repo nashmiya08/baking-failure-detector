@@ -1,27 +1,32 @@
-product,recipe,flour,sugar,fat,egg,liquid,leavener,salt,cocoa,method
-Brownie,Fudgy cocoa brownie,100,200,115,100,0,0,1.5,40,"Whisk melted butter, sugar and eggs, then fold in cocoa and flour gently until just combined. Bake until a toothpick shows moist crumbs."
-Brownie,Cakey brownie,150,200,115,100,30,2,1.5,40,Fold the flour and baking powder in gently; stop as soon as no dry flour is visible.
-Brownie,Chewy brownie,120,250,150,150,0,0,2,45,"Whisk sugar and eggs well for a shiny crust, then fold in the flour. Do not overbake."
-Brownie,One-bowl oil brownie,90,180,100,100,0,0,1.5,35,"Whisk oil, sugar and eggs, then fold in the dry ingredients with a spatula."
-Cake,Vanilla butter cake,250,200,115,150,120,7.5,1.5,0,"Cream butter and sugar 3-5 minutes until pale, add eggs one at a time, then fold in flour and milk alternately."
-Cake,Classic pound cake,250,250,250,250,0,2,1.5,0,"Use room-temperature ingredients, cream butter and sugar well and add the eggs slowly."
-Cake,Oil sponge cake,200,150,100,150,120,7,1.5,0,"Whisk eggs and sugar until thick, add oil and milk, then fold in sifted flour and baking powder."
-Cake,Chocolate cake,190,200,120,100,240,8,3,40,Mix wet and dry ingredients separately and combine until just mixed; the batter is thin.
-Cupcake / Muffin,Vanilla cupcake,190,150,115,100,120,8,1.5,0,"Cream butter and sugar, add flour and milk alternately, fill liners two thirds full."
-Cupcake / Muffin,Blueberry muffin,250,150,75,50,240,9,3,0,Muffin method: mix wet and dry separately and combine with a few strokes; lumps are fine.
-Cupcake / Muffin,Chocolate cupcake,150,150,80,100,120,6,2,30,"Whisk wet and dry separately, then combine gently; do not overmix."
-Cupcake / Muffin,Plain oil muffin,240,100,80,100,180,10,3,0,Stir wet into dry with a spatula until just combined.
-Cookies,Chocolate chip cookies,280,300,225,100,0,4.5,6,0,"Cream butter and sugar, chill the dough 30-60 minutes and bake on a cool tray."
-Cookies,Sugar cookies,300,200,225,50,0,2,3,0,Do not over-cream; chill the dough before rolling or scooping.
-Cookies,Soft drop sugar cookies,260,190,115,50,15,4.5,3,0,Mix just until combined and chill the scooped dough before baking.
-Cookies,Chewy brown sugar cookies,250,220,170,50,0,3,2,0,Use softened (not melted) butter and chill the dough for 30 minutes.
-Bread,Basic white bread,500,15,15,0,325,7,10,0,"Knead until the dough passes the windowpane test, proof until doubled, bake until it sounds hollow."
-Bread,Soft milk bread,500,40,40,50,300,7,9,0,"Knead well, proof until doubled, shape and proof again before baking."
-Bread,Rustic lean loaf,500,0,0,0,350,4,10,0,"Use a wet dough, fold rather than knead, and bake hot with steam."
-Banana bread,Classic banana bread,250,150,115,100,0,4.5,3,0,Mash 3 ripe bananas and stir the wet mix into the dry with only a few strokes.
-Banana bread,Oil banana bread,240,130,100,100,30,7,3,0,"Mash 3 ripe bananas, whisk with oil and eggs, then fold into the dry ingredients gently."
-Scones,Buttermilk scones,300,50,85,50,150,13,3,0,"Rub cold butter into the flour, bring together gently without kneading and bake hot."
-Scones,Cream scones,250,40,100,50,120,12,2,0,"Use cold cream or butter, handle the dough as little as possible and do not twist the cutter."
-Scones,Plain scones,225,30,55,50,110,9,1.5,0,"Rub in cold butter, add liquid in one go and pat out; do not knead."
-Shortbread,Classic shortbread,300,100,200,0,0,0,1.5,0,"Rub butter into flour and sugar, press into the tin, chill, prick with a fork and bake low and slow."
-Shortbread,Vanilla shortbread,250,100,170,0,0,0,1.5,0,Do not overwork the dough; chill before baking at a low temperature.
+product,recipe,flour,sugar,fat,egg,liquid,leavener,salt,cocoa,temp_c,minutes,pan,extras,source,method
+Brownie,Fudgy brownie (melted chocolate),70,190,130,100,0,0,1.5,20,175,30,20 cm / 8 inch square,dark chocolate:170,student list,"Melt chocolate and butter together and cool slightly. Whisk in sugar and eggs for 1-2 minutes for a crinkly top, then fold in flour and cocoa gently. Bake until the edges are set and the centre is slightly soft."
+Brownie,Fudgy cocoa brownie,100,200,115,100,0,0,1.5,40,175,28,20 cm / 8 inch square,,standard ratio,"Whisk melted butter, sugar and eggs, then fold in cocoa and flour gently until just combined. Bake until a toothpick shows moist crumbs."
+Brownie,Cakey brownie,150,200,115,100,30,2,1.5,40,175,28,23 cm / 9 inch square,,standard ratio,Fold the flour and baking powder in gently; stop as soon as no dry flour is visible.
+Brownie,Chewy brownie,120,250,150,150,0,0,2,45,175,30,23 cm / 9 inch square,,standard ratio,"Whisk sugar and eggs well for a shiny crust, then fold in the flour. Do not overbake."
+Brownie,One-bowl oil brownie,90,180,100,100,0,0,1.5,35,175,28,20 cm / 8 inch square,,standard ratio,"Whisk oil, sugar and eggs, then fold in the dry ingredients with a spatula."
+Cake,Classic vanilla sponge cake,200,200,200,200,50,6,2,0,170,40,23 cm / 9 inch round,,student list,"Cream butter and sugar 3-5 minutes until pale, add the eggs gradually, then fold in flour and baking powder and loosen with milk."
+Cake,Vanilla butter cake,250,200,115,150,120,7.5,1.5,0,175,35,23 cm / 9 inch round,,standard ratio,"Cream butter and sugar 3-5 minutes until pale, add eggs one at a time, then fold in flour and milk alternately."
+Cake,Classic pound cake,250,250,250,250,0,2,1.5,0,165,60,23 x 13 cm / 9x5 inch loaf tin,,standard ratio,"Use room-temperature ingredients, cream butter and sugar well and add the eggs slowly."
+Cake,Oil sponge cake,200,150,100,150,120,7,1.5,0,175,35,20 cm / 8 inch round,,standard ratio,"Whisk eggs and sugar until thick, add oil and milk, then fold in sifted flour and baking powder."
+Cake,Chocolate cake,190,200,120,100,240,8,3,40,175,35,23 cm / 9 inch round,,standard ratio,Mix wet and dry ingredients separately and combine until just mixed; the batter is thin.
+Cupcake / Muffin,Moist blueberry muffins,250,150,100,50,120,8,3,0,190,22,Muffin / cupcake tray,blueberries:150,student list (salt added),"Whisk wet and dry separately, combine with a few strokes and fold in the blueberries; lumps are fine."
+Cupcake / Muffin,Vanilla cupcake,190,150,115,100,120,8,1.5,0,180,20,Muffin / cupcake tray,,standard ratio,"Cream butter and sugar, add flour and milk alternately, fill liners two thirds full."
+Cupcake / Muffin,Blueberry muffin,250,150,75,50,240,9,3,0,190,22,Muffin / cupcake tray,,standard ratio,Muffin method: mix wet and dry separately and combine with a few strokes; lumps are fine.
+Cupcake / Muffin,Chocolate cupcake,150,150,80,100,120,6,2,30,175,20,Muffin / cupcake tray,,standard ratio,"Whisk wet and dry separately, then combine gently; do not overmix."
+Cupcake / Muffin,Plain oil muffin,240,100,80,100,180,10,3,0,190,20,Muffin / cupcake tray,,standard ratio,Stir wet into dry with a spatula until just combined.
+Cookies,Bakery-style chocolate chip cookies,250,260,170,50,0,3,3,0,180,12,Flat baking tray / sheet,chocolate chips:200,student list (salt added),"Cream butter with both sugars, add the egg, fold in the dry ingredients and chips, chill 30 minutes and bake until the edges are golden and the centres look slightly soft."
+Cookies,Chocolate chip cookies,280,300,225,100,0,4.5,6,0,180,11,Flat baking tray / sheet,chocolate chips:340,standard ratio,"Cream butter and sugar, chill the dough 30-60 minutes and bake on a cool tray."
+Cookies,Sugar cookies,300,200,225,50,0,2,3,0,180,10,Flat baking tray / sheet,,standard ratio,Do not over-cream; chill the dough before rolling or scooping.
+Cookies,Soft drop sugar cookies,260,190,115,50,15,4.5,3,0,180,11,Flat baking tray / sheet,,standard ratio,Mix just until combined and chill the scooped dough before baking.
+Cookies,Chewy brown sugar cookies,250,220,170,50,0,3,2,0,180,11,Flat baking tray / sheet,,standard ratio,Use softened (not melted) butter and chill the dough for 30 minutes.
+Bread,Standard white sandwich bread,500,15,25,0,320,7,10,0,190,35,23 x 13 cm / 9x5 inch loaf tin,,student list,"Mix and knead about 10 minutes, proof until doubled, shape, proof again and bake until it sounds hollow when tapped."
+Bread,Basic white bread,500,15,15,0,325,7,10,0,190,35,23 x 13 cm / 9x5 inch loaf tin,,standard ratio,"Knead until the dough passes the windowpane test, proof until doubled, bake until it sounds hollow."
+Bread,Soft milk bread,500,40,40,50,300,7,9,0,175,35,23 x 13 cm / 9x5 inch loaf tin,,standard ratio,"Knead well, proof until doubled, shape and proof again before baking."
+Bread,Rustic lean loaf,500,0,0,0,350,4,10,0,230,35,Flat baking tray / sheet,,standard ratio,"Use a wet dough, fold rather than knead, and bake hot with steam."
+Banana bread,Classic banana bread,250,150,115,100,0,4.5,3,0,175,55,23 x 13 cm / 9x5 inch loaf tin,mashed ripe bananas:300,standard ratio,Mash 3 ripe bananas and stir the wet mix into the dry with only a few strokes.
+Banana bread,Oil banana bread,240,130,100,100,30,7,3,0,175,55,23 x 13 cm / 9x5 inch loaf tin,mashed ripe bananas:300,standard ratio,"Mash 3 ripe bananas, whisk with oil and eggs, then fold into the dry ingredients gently."
+Scones,Buttermilk scones,300,50,85,50,150,13,3,0,210,15,Flat baking tray / sheet,,standard ratio,"Rub cold butter into the flour, bring together gently without kneading and bake hot."
+Scones,Cream scones,250,40,100,50,120,12,2,0,210,15,Flat baking tray / sheet,,standard ratio,"Use cold cream or butter, handle the dough as little as possible and do not twist the cutter."
+Scones,Plain scones,225,30,55,50,110,9,1.5,0,210,15,Flat baking tray / sheet,,standard ratio,"Rub in cold butter, add liquid in one go and pat out; do not knead."
+Shortbread,Traditional Scottish shortbread,300,100,200,0,0,0,2,0,150,35,Flat baking tray / sheet,,student list,"Rub cold butter into the flour and sugar, press into a tin, chill, prick with a fork and bake low and slow until pale golden."
+Shortbread,Vanilla shortbread,250,100,170,0,0,0,1.5,0,150,30,Flat baking tray / sheet,,standard ratio,Do not overwork the dough; chill before baking at a low temperature.

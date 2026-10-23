@@ -12,7 +12,7 @@ Upload a photo of a failed bake + oven details -> get likely causes, the baking 
 - classifier.py     Image symptom detection (CNN or colour fallback)
 - diagnosis.py      Rule-based diagnosis engine
 - recipe_fixer.py   Reads typed recipe, checks grams/ratios against the dataset, writes a corrected recipe
-- recipes_dataset.csv  Reference correct recipes (brownie, cake, cookies, muffin, bread, ...) in grams
+- recipes_dataset.csv  Reference correct recipes (brownie, cake, cookies, muffin, bread, ...) in grams, with oven temperature, time and pan size
 - guess_parser.py   Understands the user's typed guess (e.g. 'top is burnt, oven too hot')
 - knowledge_base.py Baking-science rules (symptom -> causes -> fixes)
 - train_cnn.py      Transfer-learning training script (MobileNetV2)
