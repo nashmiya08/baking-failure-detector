@@ -1,13 +1,25 @@
 """
-Recipe checker: reads the user's ingredient list, converts amounts to grams,
-compares them with typical baker's ratios (flour = 100%) and suggests a corrected recipe.
-These ratios are general home-baking guidance, not exact for every recipe.
+Recipe checker driven by a DATASET of correct reference recipes (recipes_dataset.csv).
+
+How it works (easy to explain):
+ 1. Read the user's typed ingredient lines and convert every amount to grams.
+ 2. Express each ingredient as a % of the flour weight (baker's percentage).
+ 3. From the dataset, learn the normal range for this product (min / median / max of its reference recipes).
+ 4. Find the closest reference recipe (nearest neighbour on the ratios).
+ 5. Flag ingredients that are too high, too low or missing, and suggest corrected grams
+    based on the closest reference recipe.
 """
+import csv
+import os
 import re
+import statistics
+
+DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "recipes_dataset.csv")
+CATS = ["sugar", "fat", "egg", "liquid", "leavener", "salt", "cocoa"]
+TOLERANCE = 0.2          # accept 20% beyond the dataset's min / max
+REQUIRED_SHARE = 0.75    # an ingredient is "required" if 75%+ of reference recipes use it
 
 FRACTIONS = {"½": " 1/2", "¼": " 1/4", "¾": " 3/4", "⅓": " 1/3", "⅔": " 2/3"}
-
-# keyword -> ingredient group
 CATEGORY_WORDS = {
     "leavener": ["baking powder", "baking soda", "bicarbonate", "soda", "yeast"],
     "cocoa": ["cocoa"],
@@ -24,29 +36,10 @@ LABEL = {"flour": "flour", "sugar": "sugar", "fat": "butter / oil", "egg": "",
 NICE = {"flour": "Flour", "sugar": "Sugar", "fat": "Butter / oil", "egg": "Eggs",
         "liquid": "Milk / water", "leavener": "Baking powder / soda / yeast",
         "salt": "Salt", "cocoa": "Cocoa powder"}
-
-CUP_G = {"flour": 120, "sugar": 200, "fat": 227, "liquid": 240, "cocoa": 85}  # grams per cup
+CUP_G = {"flour": 120, "sugar": 200, "fat": 227, "liquid": 240, "cocoa": 85}   # grams per cup
 TSP_G = {"leavener": 4.5, "salt": 6.0}                                          # grams per tsp
 EGG_G = 50
-
-# product -> ingredient -> (min %, target %, max %, required?)   (% of flour weight)
-TARGETS = {
-    "Cake": {
-        "sugar": (60, 85, 110, True), "fat": (35, 55, 100, True), "egg": (40, 60, 100, True),
-        "liquid": (30, 60, 100, True), "leavener": (1.5, 3, 4.5, True), "salt": (0.5, 1, 2.2, True)},
-    "Brownie": {
-        "sugar": (100, 180, 300, True), "fat": (60, 100, 150, True), "egg": (50, 90, 130, True),
-        "cocoa": (15, 35, 70, False), "leavener": (0, 0.5, 2.5, False), "salt": (0.5, 1, 2.2, True)},
-    "Cupcake / Muffin": {
-        "sugar": (30, 65, 90, True), "fat": (20, 35, 50, True), "egg": (20, 35, 50, True),
-        "liquid": (60, 85, 110, True), "leavener": (2.5, 4, 5.5, True), "salt": (0.5, 1, 2.2, True)},
-    "Cookies": {
-        "sugar": (55, 85, 115, True), "fat": (45, 62, 85, True), "egg": (15, 30, 45, True),
-        "leavener": (0.7, 1.3, 2.2, True), "salt": (0.5, 1.2, 2.2, True)},
-    "Bread": {
-        "liquid": (58, 65, 72, True), "leavener": (0.8, 1.2, 2, True), "salt": (1.5, 2, 2.5, True),
-        "sugar": (0, 3, 10, False), "fat": (0, 4, 10, False)},
-}
+STICK_G = 113
 
 WHY = {
     ("sugar", "high"): "Too much sugar burns easily, weakens the structure and can make the bake collapse or spread.",
@@ -65,10 +58,74 @@ WHY = {
     ("cocoa", "low"): "Too little cocoa gives a weak chocolate flavour.",
 }
 
-LINE = re.compile(
-    r"^\s*(?P<qty>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)\s*"
-    r"(?P<unit>kg|grams?|gm|g|ml|litres?|liters?|l|cups?|tbsp|tablespoons?|tsp|teaspoons?)?\b\s*"
-    r"(?:of\s+)?(?P<name>.+?)\s*$", re.I)
+
+# ---------------- the dataset ----------------
+def load_dataset():
+    recipes = []
+    with open(DATA_FILE, newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            r = {"product": row["product"].strip(), "name": row["recipe"].strip(),
+                 "flour": float(row["flour"]), "method": row.get("method", "").strip()}
+            for c in CATS:
+                r[c] = float(row[c] or 0)
+            recipes.append(r)
+    return recipes
+
+
+def build_targets(recipes):
+    """For each product and ingredient: (low %, median %, high %, required?) of flour weight."""
+    targets = {}
+    for product in {r["product"] for r in recipes}:
+        rs = [r for r in recipes if r["product"] == product]
+        spec = {}
+        for c in CATS:
+            pcts = [r[c] / r["flour"] * 100 for r in rs if r[c] > 0]
+            if not pcts:
+                continue
+            required = c != "cocoa" and len(pcts) / len(rs) >= REQUIRED_SHARE
+            spec[c] = (min(pcts) * (1 - TOLERANCE), statistics.median(pcts),
+                       max(pcts) * (1 + TOLERANCE), required)
+        targets[product] = spec
+    return targets
+
+
+RECIPES = load_dataset()
+TARGETS = build_targets(RECIPES)
+
+
+def products():
+    return sorted(TARGETS)
+
+
+def reference_table(product):
+    rows = []
+    for r in RECIPES:
+        if r["product"] == product:
+            rows.append({"Recipe": r["name"], "Flour (g)": f"{r['flour']:g}", "Sugar (g)": f"{r['sugar']:g}",
+                         "Butter/oil (g)": f"{r['fat']:g}", "Eggs (g)": f"{r['egg']:g}",
+                         "Milk/water (g)": f"{r['liquid']:g}", "Leavener (g)": f"{r['leavener']:g}",
+                         "Salt (g)": f"{r['salt']:g}", "Cocoa (g)": f"{r['cocoa']:g}"})
+    return rows
+
+
+def reference_methods(product):
+    return [(r["name"], r["method"]) for r in RECIPES if r["product"] == product]
+
+
+def range_table(product):
+    rows = []
+    for c, (lo, med, hi, req) in TARGETS.get(product, {}).items():
+        rows.append({"Ingredient": NICE[c], "Normal range (% of flour weight)": f"{lo:.1f} - {hi:.1f} %",
+                     "Usually included": "Yes" if req else "Optional"})
+    return rows
+
+
+# ---------------- reading the user's recipe ----------------
+UNIT = r"kg|grams?|gms?|g|ml|litres?|liters?|l|cups?|tbsp|tablespoons?|tsp|teaspoons?|sticks?"
+NUM = r"\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?"
+LINE_A = re.compile(rf"^\s*(?P<qty>{NUM})\s*(?P<unit>{UNIT})?\b\s*(?:of\s+)?(?P<name>.+?)\s*$", re.I)
+LINE_B = re.compile(rf"^\s*(?P<name>[A-Za-z][A-Za-z\s\-/']*?)\s*[:\-,]?\s*(?P<qty>{NUM})\s*(?P<unit>{UNIT})?\s*$", re.I)
+PAREN_G = re.compile(r"\(\s*(\d+(?:\.\d+)?)\s*(?:g|gm|gms|grams?)\s*\)", re.I)
 
 
 def _to_number(text):
@@ -84,6 +141,8 @@ def _to_number(text):
 
 def _category(name):
     if ("chocolate" in name or "chips" in name) and "cocoa" not in name:
+        return None
+    if re.search(r"\bcorn", name):
         return None
     for cat, words in CATEGORY_WORDS.items():
         for w in words:
@@ -102,10 +161,12 @@ def _per_tsp(cat, name):
 
 def _grams(qty, unit, cat, name):
     unit = (unit or "").lower()
-    if unit in ("g", "gm", "gram", "grams", "ml"):
+    if unit in ("g", "gm", "gms", "gram", "grams", "ml"):
         return qty
     if unit in ("kg", "l", "litre", "litres", "liter", "liters"):
         return qty * 1000
+    if unit in ("stick", "sticks"):
+        return qty * STICK_G if cat == "fat" else None
     if unit in ("cup", "cups"):
         cup = 120 if (cat == "sugar" and ("powder" in name or "icing" in name)) else CUP_G.get(cat)
         return qty * cup if cup else None
@@ -120,7 +181,7 @@ def _grams(qty, unit, cat, name):
 
 
 def parse_recipe(text):
-    """Returns (items, others, unparsed)."""
+    """Returns (items, others, unparsed). Understands '200 g flour', '2 cups (250g) flour', 'flour 200g'."""
     for k, v in FRACTIONS.items():
         text = text.replace(k, v)
     items, others, unparsed = [], [], []
@@ -128,16 +189,21 @@ def parse_recipe(text):
         line = re.sub(r"^[\s\-\u2022*]+", "", raw).strip()
         if not line:
             continue
-        m = LINE.match(line)
+        if not re.search(r"\d", line):
+            others.append(line)          # e.g. "a pinch of salt", "vanilla"
+            continue
+        paren = PAREN_G.search(line)
+        clean = PAREN_G.sub("", line).strip() if paren else line
+        m = LINE_A.match(clean) or LINE_B.match(clean)
         if not m:
             unparsed.append(line)
             continue
-        name = m.group("name").lower()
+        name = m.group("name").lower().strip(" ,:-")
         cat = _category(name)
         if cat is None:
-            others.append(line)  # vanilla, chocolate chips, etc. kept as they are
+            others.append(line)          # vanilla, chocolate chips, bananas ... kept as they are
             continue
-        grams = _grams(_to_number(m.group("qty")), m.group("unit"), cat, name)
+        grams = float(paren.group(1)) if paren else _grams(_to_number(m.group("qty")), m.group("unit"), cat, name)
         if grams is None:
             unparsed.append(line)
         else:
@@ -145,6 +211,7 @@ def parse_recipe(text):
     return items, others, unparsed
 
 
+# ---------------- formatting helpers ----------------
 def _num(cat, g):
     if cat == "egg":
         return f"{g / EGG_G:g} egg(s)"
@@ -153,8 +220,8 @@ def _num(cat, g):
     return f"{g:.0f} g"
 
 
-def _suggest(cat, flour, target):
-    g = target * flour / 100
+def _suggest(cat, flour, pct):
+    g = pct * flour / 100
     if cat == "egg":
         return EGG_G * max(1, round(g / EGG_G))
     if cat in TSP_G:
@@ -171,26 +238,49 @@ def _range_text(cat, lo, hi, flour):
     return f"{a:.0f}-{b:.0f} g"
 
 
+def _closest(product, pcts):
+    """Nearest reference recipe: smallest total difference in ingredient ratios."""
+    best, best_d = None, 1e9
+    for r in RECIPES:
+        if r["product"] != product:
+            continue
+        d = 0
+        for c in CATS:
+            rp = r[c] / r["flour"] * 100
+            d += abs(pcts[c] - rp) / (max(pcts[c], rp) + 5)
+        if d < best_d:
+            best, best_d = r, d
+    return best
+
+
+# ---------------- main function ----------------
 def analyze(text, product):
     """Returns a JSON-friendly dict, or None when there is no recipe text."""
     spec = TARGETS.get(product)
     if not text or not text.strip() or spec is None:
         return None
     items, others, unparsed = parse_recipe(text)
+    understood = [{"line": it["line"], "ingredient": NICE[it["cat"]],
+                   "grams": f"{it['grams']:.1f}" if it["grams"] < 20 else f"{it['grams']:.0f}"} for it in items]
     totals = {}
     for it in items:
         totals[it["cat"]] = totals.get(it["cat"], 0) + it["grams"]
     flour = totals.get("flour")
     if not flour:
         return {"flour_g": None, "rows": [], "flags": [], "corrected": [], "unparsed": unparsed,
+                "understood": understood, "reference": None,
                 "message": "I could not find the flour amount. Write it like '200 g flour' (one ingredient per line) so I can check the ratios."}
 
+    pcts = {c: totals.get(c, 0) / flour * 100 for c in CATS}
+    ref = _closest(product, pcts)
+    ref_pcts = {c: ref[c] / ref["flour"] * 100 for c in CATS}
+
     rows, flags, corrected = [], set(), [f"{flour:.0f} g flour"]
-    for cat, (lo, target, hi, required) in spec.items():
+    for cat, (lo, median, hi, required) in spec.items():
         g = totals.get(cat)
-        if g is None and not required:
+        if g is None and (not required or ref_pcts[cat] == 0):
             continue
-        ideal = _range_text(cat, lo, hi, flour)
+        target = ref_pcts[cat] if ref_pcts[cat] > 0 else median
         if g is None:
             status, why = "missing", "Not found in your recipe. " + WHY[(cat, "low")]
             flags.update({f"{cat}_low", f"{cat}_missing"})
@@ -206,9 +296,10 @@ def analyze(text, product):
                 status, why = "ok", ""
         fixed = _suggest(cat, flour, target) if status != "ok" else g
         tag = {"high": "  <- reduced", "low": "  <- increased", "missing": "  <- added"}.get(status, "")
-        corrected.append(f"{_num(cat, fixed)} {LABEL[cat]}".replace(") ", ")", 1) + tag if cat == "egg" else f"{_num(cat, fixed)} {LABEL[cat]}{tag}")
+        corrected.append(f"{_num(cat, fixed)} {LABEL[cat]}".strip() + tag)
         rows.append({"ingredient": NICE[cat], "used": _num(cat, g) if g is not None else "none",
-                     "ideal": ideal, "suggested": _num(cat, fixed) if status != "ok" else "keep as it is",
+                     "ideal": _range_text(cat, lo, hi, flour),
+                     "suggested": _num(cat, fixed) if status != "ok" else "keep as it is",
                      "status": status, "why": why})
     corrected.extend(others)
 
@@ -221,5 +312,11 @@ def analyze(text, product):
     if flags & {"sugar_high", "fat_high"}:
         flags.add("sugar_fat_high")
 
+    scaled = [f"{flour:.0f} g flour"]
+    for c in CATS:
+        if ref_pcts[c] > 0:
+            scaled.append(f"{_num(c, _suggest(c, flour, ref_pcts[c]))} {LABEL[c]}".strip())
+
     return {"flour_g": flour, "rows": rows, "flags": sorted(flags), "corrected": corrected,
-            "unparsed": unparsed, "message": ""}
+            "unparsed": unparsed, "understood": understood, "message": "",
+            "reference": {"name": ref["name"], "scaled": scaled, "method": ref["method"]}}

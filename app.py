@@ -9,7 +9,9 @@ from PIL import Image
 import db
 from classifier import predict
 from diagnosis import diagnose
-from knowledge_base import SYMPTOMS, PRODUCT_RANGES
+import recipe_fixer
+from guess_parser import parse_guess
+from knowledge_base import PRODUCT_RANGES
 
 st.set_page_config(page_title="Baking Failure Detector", page_icon="🧁", layout="wide")
 db.init_db()
@@ -67,19 +69,30 @@ def show_recipe_check(rc):
     st.markdown("#### 🧮 Recipe check: are your ingredient amounts right?")
     if rc.get("message"):
         st.warning(rc["message"])
+    if rc.get("understood"):
+        with st.expander("How I read your recipe (ingredients and grams detected)"):
+            st.table([{"Your line": u["line"], "Understood as": u["ingredient"], "Grams": u["grams"]}
+                      for u in rc["understood"]])
     if rc["rows"]:
-        st.caption(f"Compared with typical ratios for this bake, using your flour amount ({rc['flour_g']:.0f} g) as the base.")
+        st.caption(f"Compared with the reference recipe dataset, using your flour amount ({rc['flour_g']:.0f} g) as the base.")
         st.table([{"Ingredient": r["ingredient"], "You used": r["used"], "Ideal range": r["ideal"],
                    "Suggested": r["suggested"], "Status": STATUS[r["status"]]} for r in rc["rows"]])
         for r in rc["rows"]:
             if r["status"] != "ok":
                 st.write(f"- **{r['ingredient']}:** {r['why']}")
         st.success("**Corrected recipe for your next bake**\n\n" + "\n".join(f"- {line}" for line in rc["corrected"]))
+    if rc.get("reference"):
+        ref = rc["reference"]
+        with st.expander(f"Closest correct reference recipe: {ref['name']} (scaled to your flour)"):
+            st.write("\n".join(f"- {line}" for line in ref["scaled"]))
+            st.info("Method: " + ref["method"])
     if rc.get("unparsed"):
         st.caption("I could not read these lines: " + "; ".join(rc["unparsed"]) + ". Write them like '200 g flour'.")
 
 
 def show_result(res):
+    if res.get("guess_text"):
+        st.info(f"Your guess: {res['guess_text']}")
     if not res["symptoms"]:
         st.info("No clear failure found in the photo. Pick a guess from the list and try again.")
     for s in res["symptoms"]:
@@ -165,15 +178,19 @@ def new_diagnosis():
                                   ["Not sure / skip", "Gently folded until just combined", "Mixed vigorously / for a long time"])
             preheated = st.checkbox("Oven was preheated", value=True)
             opened = st.checkbox("I opened the oven door during baking")
-        guesses = st.multiselect("Do you already know / guess the problem? (optional)",
-                                 list(SYMPTOMS), format_func=lambda k: SYMPTOMS[k]["label"])
+        guess_text = st.text_input(
+            "Do you already know or suspect the problem? (optional, type it in your own words)",
+            placeholder="e.g. the top is burnt and the middle is raw, I think the oven was too hot")
+        st.caption("Useful words: burnt, raw, sunk, dense, cracked, spread, dry. You can also add a reason, "
+                   "like 'oven too hot', 'overmixed', 'opened the oven door' or 'didn't preheat'.")
         go = st.form_submit_button("🔍 Diagnose")
 
     if go:
         image = Image.open(photo) if photo else None
+        guess_keys, guess_flags = parse_guess(guess_text)
         inp = {"product": product, "temp": temp, "minutes": minutes, "rod": rod, "tin": tin,
-               "recipe": recipe, "guesses": guesses, "preheated": preheated,
-               "opened_door": opened, "mixing": mixing}
+               "recipe": recipe, "guesses": guess_keys, "guess_flags": guess_flags, "guess_text": guess_text,
+               "preheated": preheated, "opened_door": opened, "mixing": mixing}
         image_symptoms = predict(image) if image else []
         result = diagnose(inp, image_symptoms)
         db.save_history(st.session_state.user_id, inp, image, result)
@@ -204,14 +221,34 @@ def history_page():
             show_result(res)
 
 
+def library_page():
+    st.header("📚 Reference recipe library")
+    st.write("These correct reference recipes are the dataset the system uses to check your ingredient amounts "
+             "and to suggest a corrected recipe. Everything is in grams (1 egg is about 50 g).")
+    product = st.selectbox("Choose a bake", recipe_fixer.products())
+    st.markdown("#### Reference recipes")
+    st.table(recipe_fixer.reference_table(product))
+    st.markdown("#### Normal ingredient ranges learned from these recipes")
+    st.table(recipe_fixer.range_table(product))
+    st.markdown("#### Method tips")
+    for name, method in recipe_fixer.reference_methods(product):
+        st.write(f"- **{name}:** {method}")
+    st.caption("To add more recipes, add rows to recipes_dataset.csv in your GitHub repo.")
+
+
 # ---------------- main ----------------
 if st.session_state.user_id is None:
     login_page()
 else:
     st.sidebar.markdown("### 🧁 Baking Lab")
     st.sidebar.write(f"Logged in as **{st.session_state.username}**")
-    page = st.sidebar.radio("Menu", ["New diagnosis", "History"])
+    page = st.sidebar.radio("Menu", ["New diagnosis", "History", "Recipe library"])
     if st.sidebar.button("Logout"):
         st.session_state.user_id = None
         st.rerun()
-    new_diagnosis() if page == "New diagnosis" else history_page()
+    if page == "New diagnosis":
+        new_diagnosis()
+    elif page == "History":
+        history_page()
+    else:
+        library_page()

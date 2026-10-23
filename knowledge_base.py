@@ -12,6 +12,9 @@ PRODUCT_RANGES = {
     "Cupcake / Muffin": {"temp": (170, 190), "time": (18, 26)},
     "Cookies":          {"temp": (170, 190), "time": (8, 15)},
     "Bread":            {"temp": (190, 230), "time": (25, 45)},
+    "Banana bread":     {"temp": (165, 180), "time": (50, 65)},
+    "Scones":           {"temp": (200, 220), "time": (12, 18)},
+    "Shortbread":       {"temp": (150, 170), "time": (20, 35)},
 }
 
 SYMPTOMS = {

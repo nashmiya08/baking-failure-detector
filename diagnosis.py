@@ -1,4 +1,4 @@
-"""Diagnosis engine: image symptoms + user inputs + knowledge base -> ranked causes."""
+"""Diagnosis engine: image symptoms + typed guess + inputs + recipe check + knowledge base -> ranked causes."""
 from knowledge_base import SYMPTOMS, PRODUCT_RANGES
 from recipe_fixer import analyze
 
@@ -39,16 +39,16 @@ def build_flags(inp):
     if inp["opened_door"]:
         flags.add("opened_door")
         notes.append("Opening the oven door drops the temperature and can collapse the bake.")
-
-    text = inp["recipe"].lower()
     if inp.get("mixing", "").startswith("Mixed vigorously"):
         flags.add("overmix_hint")
         notes.append("You mixed vigorously, which develops gluten and makes the crumb tough.")
+
+    text = inp["recipe"].lower()
     if any(w in text for w in ("blender", "high speed", "beat well", "whisk vigorously", "mix well")):
         flags.add("overmix_hint")
         notes.append("Recipe text suggests vigorous mixing, which can toughen the crumb.")
     if inp["product"] == "Cookies":
-        if "melted butter" in text or "melted" in text:
+        if "melted" in text:
             flags.add("melted_fat")
         if "chill" not in text and "refrigerat" not in text and text.strip():
             flags.add("no_chill")
@@ -56,19 +56,27 @@ def build_flags(inp):
 
 
 def diagnose(inp, image_symptoms):
-    """image_symptoms: list of (symptom_key, confidence, source)."""
+    """image_symptoms: list of (symptom_key, confidence, source).
+    inp["guesses"] = symptom keys found in the typed guess; inp["guess_flags"] = {rule: sentence}."""
     flags, notes = build_flags(inp)
+
+    for rule, sentence in inp.get("guess_flags", {}).items():
+        flags.add(rule)
+        notes.append(f"You suspected that {sentence}; this was added to the analysis.")
+    if inp.get("guess_text", "").strip() and not inp.get("guesses") and not inp.get("guess_flags"):
+        notes.append("I could not match your typed guess to a known problem. Try words like burnt, sunk, dense, "
+                     "cracked, spread, dry or raw.")
+
     recipe_check = analyze(inp["recipe"], inp["product"])
     if recipe_check:
         flags |= set(recipe_check["flags"])
 
-    # merge image predictions and the user's own guesses
     found = {}
     for key, conf, src in image_symptoms:
         found[key] = (conf, src)
-    for key in inp["guesses"]:
+    for key in inp.get("guesses", []):
         if key not in found or found[key][0] < 0.8:
-            found[key] = (0.8, "your guess")
+            found[key] = (0.8, "your typed guess")
 
     results, plan_recipe, plan_process = [], [], []
     for key, (conf, src) in sorted(found.items(), key=lambda x: -x[1][0]):
@@ -88,5 +96,9 @@ def diagnose(inp, image_symptoms):
                 if "No ingredient change" not in text and text not in bucket:
                     bucket.append(text)
 
+    if recipe_check and recipe_check.get("reference"):
+        plan_process.append("Method from the closest reference recipe: " + recipe_check["reference"]["method"])
+
     return {"symptoms": results, "notes": notes, "recipe_check": recipe_check,
+            "guess_text": inp.get("guess_text", ""),
             "plan": {"recipe": plan_recipe, "process": plan_process}}
